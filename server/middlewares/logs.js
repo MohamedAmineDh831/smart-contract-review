@@ -1,6 +1,7 @@
 // const { isEmpty, getCurrentTimeStampWithMs } = require('../utils/utils');
 const { format } = require('date-fns');
 const now = require('performance-now');
+const { logger } = require('./logger.js');
 const { isJsonStr } = require('../lib/helper');
 const port = process.env.PORT || 4000;
 

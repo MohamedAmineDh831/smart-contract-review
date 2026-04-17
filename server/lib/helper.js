@@ -1,3 +1,6 @@
+
+const showErrorLogs = true;
+
 function isJsonStr(str) {
   if (typeof str !== "string") return false;
   try {
