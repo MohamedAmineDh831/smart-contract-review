@@ -10,20 +10,19 @@ const { expressLogger, expressErrorLogger } = require('./middlewares/logger.js')
 const requestIp = require('request-ip');
 const helmet = require('helmet');
 const xss = require('xss-clean');
-const fastwinston = require('fastwinston');
+const addTraceId = require('./middlewares/traceId');
+const { apiLimiter } = require('./middlewares/rateLimiter');
 const mongoSanitize = require('express-mongo-sanitize');
 const compression = require('express-compression');
 
 // lib / Utils imports
-const { createUserApiLog } = require('./middlewares/logs.js');
-const { isJsonStr } = require('./lib/helper.js');
 const ERROR_HANDLER = require('./lib/utils/utils.js');
 
 // Routes import
-// const usersRoute = require('./routes/users.js');
-// const questionsRoute = require('./routes/questions.js');
-// const customerRoute = require('./routes/customer.js');
-// const phoneRoute = require('./routes/phone.js');
+const usersRoute = require('./routes/users.js');
+const questionsRoute = require('./routes/questions.js');
+const customerRoute = require('./routes/customer.js');
+const phoneRoute = require('./routes/phone.js');
 const config = require('./config/config.js');
 
 
@@ -36,6 +35,9 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
+
+app.use(addTraceId);
+app.use(`${config.server.route}`, apiLimiter);
 
 // ---------------------------- Middleware for accepting encoded & json request params
 app.use(express.urlencoded({ extended: true }));
@@ -61,8 +63,7 @@ app.use(expressLogger);
 // ----------------------------------Middleware Ended-------------------------------------
 
 // ----------------------------Middleware to Fix CORS Errors This Will Update The Incoming Request before sending to routes
-// Allow requests from all origins
-app.use(cors());
+
 
 // Configure Helmet
 app.use(helmet());
@@ -97,6 +98,7 @@ app.use(mongoSanitize());
 app.use(compression());
 
 // -----------------------------Middleware for storing API logs into DB
+/*
 app.use(function (req, res, next) {
     // Do whatever you want this will execute when response is finished
     res.once('end', function () {
@@ -111,6 +113,7 @@ app.use(function (req, res, next) {
     };
     next();
 });
+*/
 
 // ---------------------------- Route to Ping & check if Server is online
 app.get(config.server.route + '/pingServer', (req, res) => {
@@ -119,10 +122,10 @@ app.get(config.server.route + '/pingServer', (req, res) => {
 });
 
 
-// app.use(`${config.server.route}/customers`, customerRoute);
-// app.use(`${config.server.route}/users`, usersRoute);
-// app.use(`${config.server.route}/questions`, questionsRoute);
-// app.use(`${config.server.route}/phone`, phoneRoute);
+app.use(`${config.server.route}/customers`, customerRoute);
+app.use(`${config.server.route}/users`, usersRoute);
+app.use(`${config.server.route}/questions`, questionsRoute);
+app.use(`${config.server.route}/phone`, phoneRoute);
 
 // ----------------------------Middleware for catching 404 and forward to error handler
 app.use((req, res, next) => {
@@ -147,28 +150,13 @@ app.use((error, req, res, next) => {
         });
     };
 
-    // MongoDB errors
-    if (error.name === 'MongoError') {
-        if (error.code === 11000) {
-            sendErrorResponse(409, 'Conflict', 'Duplicate key', error.stack);
-        } else {
-            sendErrorResponse(500, 'error', error.message || 'Internal Server Error', error.stack);
-        }
-    } else if (error.name === 'MongoServerError') {
+    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
         if (error.code === 11000) {
             sendErrorResponse(409, 'Conflict', 'User already exists', error.stack);
         } else {
             sendErrorResponse(500, 'error', error.message || 'Internal Server Error', error.stack);
         }
-    }
-    // ObjectID errors
-    else if (error.name === 'CastError' && error.kind === '[ObjectId]') {
-        sendErrorResponse(400, 'Bad Request', 'Invalid ID', error.stack);
-    } else if (error.name === 'CastError' && error.kind === 'ObjectId') {
-        sendErrorResponse(400, 'Bad Request', 'Invalid ID', error.stack);
-    }
-    // Validation errors
-    else if (error.name === 'ValidationError') {
+    } else if (error.name === 'ValidationError') {
         const messages = Object.values(error.errors).map((e) => e.message);
         sendErrorResponse(422, 'error', 'Validation failed', error.stack, messages);
     }
