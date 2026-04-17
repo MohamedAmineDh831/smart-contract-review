@@ -1,14 +1,14 @@
 const rateLimit = require('express-rate-limit');
 
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res, next, options) => {
         res.status(429).json({
             success: false,
-            message: "Trop de requêtes effectuées depuis cette IP, veuillez réessayer dans 15 minutes."
+            message: "Too many requests from this IP, please try again in 15 minutes."
         });
     }
 });
@@ -21,7 +21,7 @@ const authLimiter = rateLimit({
     handler: (req, res, next, options) => {
         res.status(429).json({
             success: false,
-            message: "Trop de tentatives. Par mesure de sécurité, veuillez patienter 1 minute."
+            message: "Too many attempts. For security reasons, please wait 1 minute."
         });
     }
 });
