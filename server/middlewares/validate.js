@@ -6,7 +6,7 @@ const validate = (schema) => {
             const errorMessages = error.details.map((err) => err.message);
             return res.status(422).json({
                 success: false,
-                message: "Erreur de validation des données",
+                message: "Data validation error",
                 data: errorMessages,
             });
         }
