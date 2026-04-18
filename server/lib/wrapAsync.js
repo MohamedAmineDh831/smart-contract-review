@@ -1,15 +1,19 @@
 const { printErrorLog, formatErrorString } = require("./helper");
 
-exports.wrapAsync = (func) => async (req, res, next) => {
-    try {
-        await func(req, res, next);
-    } catch (error) {
-        console.error("🔥 VRAIE ERREUR CRITIQUE :", error);
-
-        if (typeof printErrorLog === 'function' && typeof formatErrorString === 'function') {
-            printErrorLog(`${req.originalUrl} catch: ` + formatErrorString(error));
-        }
-
-        return next(error);
-    }
+const wrapAsync = (fn) => {
+    return (req, res, next) => {
+        Promise.resolve(fn(req, res, next)).catch((err) => {
+            console.error("🔥 ERROR CAUGHT BY WRAPASYNC:", err.message);
+            try {
+                if (typeof printErrorLog === 'function' && typeof formatErrorString === 'function') {
+                    printErrorLog(`${req.originalUrl} catch: ` + formatErrorString(err));
+                }
+            } catch (loggerError) {
+                console.error("⚠️ Logger failed but server stays alive:", loggerError.message);
+            }
+            next(err);
+        });
+    };
 };
+
+module.exports = { wrapAsync };
