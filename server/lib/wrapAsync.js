@@ -2,11 +2,14 @@ const { printErrorLog, formatErrorString } = require("./helper");
 
 exports.wrapAsync = (func) => async (req, res, next) => {
     try {
-        await func(req, res);
+        await func(req, res, next);
     } catch (error) {
-        console.log({ error: error.response });
+        console.error("🔥 VRAIE ERREUR CRITIQUE :", error);
 
-        printErrorLog(`${req.originalUrl} catch: ` + formatErrorString(error));
+        if (typeof printErrorLog === 'function' && typeof formatErrorString === 'function') {
+            printErrorLog(`${req.originalUrl} catch: ` + formatErrorString(error));
+        }
+
         return next(error);
     }
 };
