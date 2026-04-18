@@ -27,35 +27,26 @@ const registerCustomer = async (customerData) => {
     const pkey = keypair.publicKey();
     const skey = keypair.secret();
 
-    console.log(`🔑 Keypair created: Public=${pkey}`);
-
     try {
         const fetch = await import("node-fetch").then((mod) => mod.default);
-
         const response = await fetch(`https://friendbot.diamcircle.io/?addr=${pkey}`);
 
         if (!response.ok) {
-            const errorDetails = await response.text();
-            console.error(`🔴 Friendbot refused (HTTP Status: ${response.status}). Details:`, errorDetails);
-
             const error = new Error("The blockchain service is temporarily unavailable (Friendbot refused).");
             error.statusCode = 502;
             throw error;
         }
 
         const result = await response.json();
-        console.log(`✅ Account ${pkey} successfully funded and activated on the network!`);
+        console.log(`✅ Account ${pkey} activated on Diamante Network`);
 
     } catch (err) {
         if (err.statusCode) throw err;
 
-        const error = new Error("Unable to contact the Diamante network. Check your connection.");
-        error.statusCode = 503; // 503 Service Unavailable
+        const error = new Error("Unable to contact the Diamante network.");
+        error.statusCode = 503;
         throw error;
     }
-
-    const result = await response.json();
-    console.log(`Account ${pkey} activated`, result);
 
     const payload = {
         name,
@@ -95,7 +86,7 @@ const sendOtpEmail = async (userEmail, otp) => {
             subject: "SupplyX Have just delivered your OTP!",
             html: `
             <body>
-                <h3 style="font-family:Sans-Serif;color:#190482;">
+                <h3 style="font-family:Sans-Serif,serif;color:#190482;">
                    Your OTP IS: ${otp},<br/><br/>
                    If you did not request this OTP, please ignore this email and do not share the OTP with anybody else.
                 </h3>
@@ -115,13 +106,10 @@ const fetchBalance = async (pkey) => {
     const server = new Horizon.Server("https://diamtestnet.diamcircle.io/");
     const account = await server.loadAccount(pkey);
 
-    // Bug fix: Extract balances into an array cleanly
-    const balances = account.balances.map(balance => ({
+    return account.balances.map(balance => ({
         type: balance.asset_type,
         balance: balance.balance
     }));
-
-    return balances;
 };
 
 const processPayment = async (destinationKey, amount = "1") => {

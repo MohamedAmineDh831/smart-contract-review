@@ -58,6 +58,10 @@ app.use(requestIp.mw());
 // Allow requests from all origins
 app.use(cors());
 
+
+const setupSwagger = require('./middlewares/swagger');
+setupSwagger(app);
+
 // ----------------------------Middleware for printing logs on console
 app.use(expressLogger);
 // ----------------------------------Middleware Ended-------------------------------------
@@ -141,29 +145,42 @@ app.use((error, req, res, next) => {
         return next(error);
     }
 
-    const sendErrorResponse = (status, message, desc, stack) => {
-        res.status(status).json({
-            result: message,
-            code: status,
-            desc,
-            stack: config.server.nodeEnv === 'PROD' ? null : stack
+    const env = (typeof config !== 'undefined' && config.server)
+        ? config.server.nodeEnv
+        : process.env.NODE_ENV;
+
+    const sendErrorResponse = (status, result, desc, stack) => {
+        // On s'assure que le statut est un nombre valide
+        const validStatus = Number.isInteger(status) ? status : 500;
+
+        res.status(validStatus).json({
+            success: false,
+            result: result,
+            code: validStatus,
+            desc: desc,
+            // On ne montre la stack que si on n'est PAS en PROD
+            stack: env === 'PROD' ? null : stack
         });
     };
 
     if (error.name === 'MongoError' || error.name === 'MongoServerError') {
         if (error.code === 11000) {
-            sendErrorResponse(409, 'Conflict', 'User already exists', error.stack);
+            sendErrorResponse(409, 'Conflict', 'Resource already exists (duplicate key)', error.stack);
         } else {
-            sendErrorResponse(500, 'error', error.message || 'Internal Server Error', error.stack);
+            sendErrorResponse(500, 'Database Error', error.message, error.stack);
         }
-    } else if (error.name === 'ValidationError') {
-        const messages = Object.values(error.errors).map((e) => e.message);
-        sendErrorResponse(422, 'error', 'Validation failed', error.stack, messages);
     }
-    // Other errors
+    else if (error.name === 'ValidationError') {
+        const messages = error.errors ? Object.values(error.errors).map((e) => e.message).join(' | ') : error.message;
+        sendErrorResponse(422, 'Validation Error', messages, error.stack);
+    }
+    else if (error.message && error.message.includes('Friendbot')) {
+        sendErrorResponse(502, 'Blockchain Service Error', error.message, error.stack);
+    }
+    // 4. Toutes les autres erreurs
     else {
         const statusCode = error.statusCode || 500;
-        sendErrorResponse(statusCode, 'error', error.message || 'Internal Server Error', error.stack);
+        sendErrorResponse(statusCode, 'Error', error.message || 'Internal Server Error', error.stack);
     }
 });
 
